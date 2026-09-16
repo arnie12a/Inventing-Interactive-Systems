@@ -1,240 +1,16 @@
-
-# import pygame
-
-# from serial_controller import SerialController
-
-
-# # =====================================================
-# # GAME SETTINGS
-# # =====================================================
-
-# WIDTH = 1000
-# HEIGHT = 700
-
-# PLAYER_SIZE = 40
-
-# SPEED = 5
-
-
-# # =====================================================
-# # SERIAL
-# # =====================================================
-
-# serial_controller = SerialController(
-#     port="/dev/cu.usbserial-0001",
-#     baud_rate=115200
-# )
-
-
-# # =====================================================
-# # PYGAME
-# # =====================================================
-
-# pygame.init()
-
-# screen = pygame.display.set_mode(
-#     (WIDTH, HEIGHT)
-# )
-
-# pygame.display.set_caption(
-#     "ESP32 Gesture Game"
-# )
-
-# clock = pygame.time.Clock()
-
-
-# # =====================================================
-# # PLAYER
-# # =====================================================
-
-# player_x = WIDTH // 2
-# player_y = HEIGHT // 2
-
-
-# # =====================================================
-# # COMMAND
-# # =====================================================
-
-# command = "NONE"
-
-
-# # =====================================================
-# # FONT
-# # =====================================================
-
-# font = pygame.font.Font(
-#     None,
-#     36
-# )
-
-
-# # =====================================================
-# # MAIN LOOP
-# # =====================================================
-
-# running = True
-
-# while running:
-
-
-#     # -------------------------------------------------
-#     # PYGAME EVENTS
-#     # -------------------------------------------------
-
-#     for event in pygame.event.get():
-
-#         if event.type == pygame.QUIT:
-
-#             running = False
-
-
-#     # -------------------------------------------------
-#     # GET ESP32 COMMAND
-#     # -------------------------------------------------
-
-#     command = serial_controller.get_command()
-
-
-#     # -------------------------------------------------
-#     # MOVEMENT
-#     # -------------------------------------------------
-
-#     if command == "LEFT":
-
-#         player_x -= SPEED
-
-
-#     elif command == "RIGHT":
-
-#         player_x += SPEED
-
-
-#     elif command == "FORWARD":
-
-#         player_y -= SPEED
-
-
-#     elif command == "DIAGONAL_LEFT":
-
-#         player_x -= SPEED * 0.707
-#         player_y -= SPEED * 0.707
-
-
-#     elif command == "DIAGONAL_RIGHT":
-
-#         player_x += SPEED * 0.707
-#         player_y -= SPEED * 0.707
-
-
-#     elif command == "NONE":
-
-#         pass
-
-
-#     # -------------------------------------------------
-#     # KEEP PLAYER ON SCREEN
-#     # -------------------------------------------------
-
-#     if player_x < 0:
-
-#         player_x = 0
-
-
-#     if player_x > WIDTH - PLAYER_SIZE:
-
-#         player_x = WIDTH - PLAYER_SIZE
-
-
-#     if player_y < 0:
-
-#         player_y = 0
-
-
-#     if player_y > HEIGHT - PLAYER_SIZE:
-
-#         player_y = HEIGHT - PLAYER_SIZE
-
-
-#     # -------------------------------------------------
-#     # DRAW BACKGROUND
-#     # -------------------------------------------------
-
-#     screen.fill(
-#         (255, 255, 255)
-#     )
-
-
-#     # -------------------------------------------------
-#     # DRAW PLAYER
-#     # -------------------------------------------------
-
-#     pygame.draw.rect(
-#         screen,
-#         (0, 100, 255),
-#         (
-#             int(player_x),
-#             int(player_y),
-#             PLAYER_SIZE,
-#             PLAYER_SIZE
-#         )
-#     )
-
-
-#     # -------------------------------------------------
-#     # COMMAND TEXT
-#     # -------------------------------------------------
-
-#     command_text = font.render(
-#         f"Command: {command}",
-#         True,
-#         (0, 0, 0)
-#     )
-
-#     screen.blit(
-#         command_text,
-#         (20, 20)
-#     )
-
-
-#     # -------------------------------------------------
-#     # POSITION TEXT
-#     # -------------------------------------------------
-
-#     position_text = font.render(
-#         f"Position: ({int(player_x)}, {int(player_y)})",
-#         True,
-#         (0, 0, 0)
-#     )
-
-#     screen.blit(
-#         position_text,
-#         (20, 60)
-#     )
-
-
-#     # -------------------------------------------------
-#     # UPDATE
-#     # -------------------------------------------------
-
-#     pygame.display.flip()
-
-#     clock.tick(60)
-
-
-# # =====================================================
-# # CLEANUP
-# # =====================================================
-
-# serial_controller.close()
-
-# pygame.quit()
-
 import pygame
 import csv
+
 from pathlib import Path
 from datetime import datetime
 
 from serial_controller import SerialController
+
+from obstacles import (
+    get_random_course,
+    create_finish_line,
+    draw_course
+)
 
 
 # =====================================================
@@ -248,13 +24,14 @@ PLAYER_SIZE = 35
 
 SPEED = 5
 
+
+# =====================================================
+# COLORS
+# =====================================================
+
 BACKGROUND_COLOR = (240, 240, 240)
 
 PLAYER_COLOR = (0, 100, 255)
-
-OBSTACLE_COLOR = (180, 50, 50)
-
-FINISH_COLOR = (50, 180, 80)
 
 TEXT_COLOR = (20, 20, 20)
 
@@ -263,7 +40,10 @@ TEXT_COLOR = (20, 20, 20)
 # SCORE FILE
 # =====================================================
 
-SCORE_FILE = Path(__file__).resolve().parent / "scores.csv"
+SCORE_FILE = (
+    Path(__file__).resolve().parent
+    / "scores.csv"
+)
 
 
 # =====================================================
@@ -310,7 +90,6 @@ large_font = pygame.font.Font(
 font = pygame.font.Font(
     None,
     36
-
 )
 
 small_font = pygame.font.Font(
@@ -320,71 +99,12 @@ small_font = pygame.font.Font(
 
 
 # =====================================================
-# OBSTACLES
+# CURRENT COURSE
 # =====================================================
 
-obstacles = [
+obstacles = get_random_course()
 
-    # First obstacle - gap on right
-    pygame.Rect(
-        0,
-        520,
-        650,
-        35
-    ),
-
-    # Second obstacle - gap on left
-    pygame.Rect(
-        350,
-        430,
-        650,
-        35
-    ),
-
-    # Third obstacle - gap on right
-    pygame.Rect(
-        0,
-        340,
-        600,
-        35
-    ),
-
-    # Fourth obstacle - gap on left
-    pygame.Rect(
-        300,
-        250,
-        700,
-        35
-    ),
-
-    # Fifth obstacle - gap on right
-    pygame.Rect(
-        0,
-        160,
-        700,
-        35
-    ),
-
-    # Extra smaller obstacle
-    pygame.Rect(
-        200,
-        90,
-        250,
-        30
-    ),
-]
-
-
-# =====================================================
-# FINISH LINE
-# =====================================================
-
-finish_line = pygame.Rect(
-    0,
-    30,
-    WIDTH,
-    30
-)
+finish_line = create_finish_line()
 
 
 # =====================================================
@@ -395,7 +115,6 @@ NAME_ENTRY = "NAME_ENTRY"
 COUNTDOWN = "COUNTDOWN"
 PLAYING = "PLAYING"
 FINISHED = "FINISHED"
-
 
 game_state = NAME_ENTRY
 
@@ -409,7 +128,7 @@ player_y = HEIGHT - 80
 
 
 # =====================================================
-# NAME
+# PLAYER NAME
 # =====================================================
 
 player_name = ""
@@ -421,7 +140,6 @@ player_name = ""
 
 start_time = None
 finish_time = None
-
 final_score = None
 
 
@@ -435,7 +153,14 @@ COUNTDOWN_LENGTH = 3
 
 
 # =====================================================
-# CREATE PLAYER RECT
+# CURRENT COMMAND
+# =====================================================
+
+command = "NONE"
+
+
+# =====================================================
+# GET PLAYER RECT
 # =====================================================
 
 def get_player_rect():
@@ -457,12 +182,16 @@ def reset_player():
     global player_x
     global player_y
 
-    player_x = WIDTH // 2 - PLAYER_SIZE // 2
+    player_x = (
+        WIDTH // 2
+        - PLAYER_SIZE // 2
+    )
+
     player_y = HEIGHT - 80
 
 
 # =====================================================
-# START GAME
+# START NEW GAME
 # =====================================================
 
 def start_game():
@@ -473,11 +202,34 @@ def start_game():
     global finish_time
     global final_score
 
+    global obstacles
+    global finish_line
+
+    # -----------------------------------------------
+    # Choose a NEW random course
+    # -----------------------------------------------
+
+    obstacles = get_random_course()
+
+    finish_line = create_finish_line()
+
+    # -----------------------------------------------
+    # Reset player
+    # -----------------------------------------------
+
     reset_player()
+
+    # -----------------------------------------------
+    # Reset timer
+    # -----------------------------------------------
 
     start_time = None
     finish_time = None
     final_score = None
+
+    # -----------------------------------------------
+    # Start countdown
+    # -----------------------------------------------
 
     countdown_start = pygame.time.get_ticks()
 
@@ -501,7 +253,6 @@ def save_score():
 
         writer = csv.writer(file)
 
-        # Create header for a new file
         if not file_exists:
 
             writer.writerow([
@@ -518,13 +269,14 @@ def save_score():
             f"{final_score:.2f}"
         ])
 
+
     print(
         f"Score saved to {SCORE_FILE}"
     )
 
 
 # =====================================================
-# CHECK COLLISION
+# COLLISION
 # =====================================================
 
 def collides_with_obstacle(rect):
@@ -548,9 +300,9 @@ def move_player(dx, dy):
     global player_y
 
 
-    # -------------------------------------------------
-    # MOVE X
-    # -------------------------------------------------
+    # -----------------------------------------------
+    # Horizontal movement
+    # -----------------------------------------------
 
     new_x = player_x + dx
 
@@ -566,9 +318,9 @@ def move_player(dx, dy):
         player_x = new_x
 
 
-    # -------------------------------------------------
-    # MOVE Y
-    # -------------------------------------------------
+    # -----------------------------------------------
+    # Vertical movement
+    # -----------------------------------------------
 
     new_y = player_y + dy
 
@@ -585,7 +337,7 @@ def move_player(dx, dy):
 
 
 # =====================================================
-# DRAW TEXT CENTERED
+# DRAW CENTERED TEXT
 # =====================================================
 
 def draw_centered_text(
@@ -601,7 +353,10 @@ def draw_centered_text(
         color
     )
 
-    x = (WIDTH - surface.get_width()) // 2
+    x = (
+        WIDTH
+        - surface.get_width()
+    ) // 2
 
     screen.blit(
         surface,
@@ -614,6 +369,7 @@ def draw_centered_text(
 # =====================================================
 
 running = True
+
 
 while running:
 
@@ -645,15 +401,18 @@ while running:
 
                 elif event.key == pygame.K_BACKSPACE:
 
-                    player_name = player_name[:-1]
+                    player_name = (
+                        player_name[:-1]
+                    )
 
 
                 else:
 
-                    # Only add printable characters
                     if event.unicode.isprintable():
 
-                        player_name += event.unicode
+                        player_name += (
+                            event.unicode
+                        )
 
 
         # ---------------------------------------------
@@ -690,7 +449,9 @@ while running:
 
         if elapsed >= COUNTDOWN_LENGTH:
 
-            start_time = pygame.time.get_ticks()
+            start_time = (
+                pygame.time.get_ticks()
+            )
 
             game_state = PLAYING
 
@@ -705,7 +466,9 @@ while running:
         # Get ESP32 command
         # ---------------------------------------------
 
-        command = serial_controller.get_command()
+        command = (
+            serial_controller.get_command()
+        )
 
 
         # ---------------------------------------------
@@ -763,7 +526,9 @@ while running:
 
         if player_x > WIDTH - PLAYER_SIZE:
 
-            player_x = WIDTH - PLAYER_SIZE
+            player_x = (
+                WIDTH - PLAYER_SIZE
+            )
 
 
         if player_y < 0:
@@ -773,7 +538,9 @@ while running:
 
         if player_y > HEIGHT - PLAYER_SIZE:
 
-            player_y = HEIGHT - PLAYER_SIZE
+            player_y = (
+                HEIGHT - PLAYER_SIZE
+            )
 
 
         # ---------------------------------------------
@@ -782,12 +549,17 @@ while running:
 
         player_rect = get_player_rect()
 
-        if player_rect.colliderect(finish_line):
+        if player_rect.colliderect(
+            finish_line
+        ):
 
-            finish_time = pygame.time.get_ticks()
+            finish_time = (
+                pygame.time.get_ticks()
+            )
 
             final_score = (
-                finish_time - start_time
+                finish_time
+                - start_time
             ) / 1000
 
             save_score()
@@ -796,7 +568,7 @@ while running:
 
 
     # =================================================
-    # DRAW
+    # DRAW BACKGROUND
     # =================================================
 
     screen.fill(
@@ -805,7 +577,7 @@ while running:
 
 
     # =================================================
-    # NAME ENTRY SCREEN
+    # NAME ENTRY
     # =================================================
 
     if game_state == NAME_ENTRY:
@@ -816,14 +588,13 @@ while running:
             120
         )
 
+
         draw_centered_text(
             "Enter your name",
             large_font,
             240
         )
 
-
-        # Name box
 
         name_box = pygame.Rect(
             250,
@@ -832,11 +603,13 @@ while running:
             60
         )
 
+
         pygame.draw.rect(
             screen,
             (255, 255, 255),
             name_box
         )
+
 
         pygame.draw.rect(
             screen,
@@ -851,6 +624,7 @@ while running:
             True,
             TEXT_COLOR
         )
+
 
         screen.blit(
             name_surface,
@@ -869,14 +643,14 @@ while running:
 
 
         draw_centered_text(
-            "Use the ESP32 sensors to navigate the course",
+            "Navigate using the ESP32 sensors",
             small_font,
             500
         )
 
 
     # =================================================
-    # COUNTDOWN SCREEN
+    # COUNTDOWN
     # =================================================
 
     elif game_state == COUNTDOWN:
@@ -919,40 +693,32 @@ while running:
 
 
     # =================================================
-    # GAME SCREEN
+    # PLAYING
     # =================================================
 
     elif game_state == PLAYING:
 
         # ---------------------------------------------
-        # Draw obstacles
+        # Course
         # ---------------------------------------------
 
-        for obstacle in obstacles:
-
-            pygame.draw.rect(
-                screen,
-                OBSTACLE_COLOR,
-                obstacle
-            )
-
-
-        # ---------------------------------------------
-        # Draw finish line
-        # ---------------------------------------------
-
-        pygame.draw.rect(
+        draw_course(
             screen,
-            FINISH_COLOR,
+            obstacles,
             finish_line
         )
 
+
+        # ---------------------------------------------
+        # Finish label
+        # ---------------------------------------------
 
         finish_text = small_font.render(
             "FINISH",
             True,
             (255, 255, 255)
         )
+
 
         screen.blit(
             finish_text,
@@ -965,7 +731,7 @@ while running:
 
 
         # ---------------------------------------------
-        # Draw player
+        # Player
         # ---------------------------------------------
 
         pygame.draw.rect(
@@ -991,6 +757,7 @@ while running:
             TEXT_COLOR
         )
 
+
         screen.blit(
             timer_text,
             (20, 20)
@@ -998,7 +765,7 @@ while running:
 
 
         # ---------------------------------------------
-        # Player name
+        # Name
         # ---------------------------------------------
 
         name_text = small_font.render(
@@ -1007,6 +774,7 @@ while running:
             TEXT_COLOR
         )
 
+
         screen.blit(
             name_text,
             (20, 60)
@@ -1014,23 +782,24 @@ while running:
 
 
         # ---------------------------------------------
-        # Controls
+        # Current command
         # ---------------------------------------------
 
-        controls = small_font.render(
-            "Center: Forward | Left: Left | Right: Right",
+        command_text = small_font.render(
+            f"Command: {command}",
             True,
             TEXT_COLOR
         )
 
+
         screen.blit(
-            controls,
-            (20, HEIGHT - 40)
+            command_text,
+            (20, 95)
         )
 
 
     # =================================================
-    # FINISHED SCREEN
+    # FINISHED
     # =================================================
 
     elif game_state == FINISHED:
@@ -1078,7 +847,7 @@ while running:
 
 
     # =================================================
-    # UPDATE SCREEN
+    # UPDATE
     # =================================================
 
     pygame.display.flip()
