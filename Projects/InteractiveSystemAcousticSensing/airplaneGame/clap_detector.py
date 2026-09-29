@@ -8,9 +8,9 @@ from scipy.signal import get_window
 
 class ClapDetector:
     """
-    Detects claps and double claps from microphone input.
+    Detects individual claps and double claps.
 
-    Events produced:
+    Events returned:
 
         ("clap", strength)
 
@@ -31,60 +31,51 @@ class ClapDetector:
         self.fft_size = fft_size
         self.input_device = input_device
 
-        # --------------------------------------------------
-        # CLAP DETECTION SETTINGS
-        # --------------------------------------------------
+        # ==================================================
+        # CLAP DETECTION
+        # ==================================================
 
-        # Minimum microphone RMS level
+        # Lower this if claps aren't detected.
         self.energy_threshold = 0.045
 
-        # Frequency range used to identify a clap
+        # Frequency range used to identify clap-like
+        # spectral content.
         self.high_freq_min = 2000
         self.high_freq_max = 10000
 
-        # Fraction of FFT energy that must be in the
-        # high-frequency range.
+        # Lower this if claps aren't detected.
+        # Raise it if normal sounds trigger the detector.
         self.high_freq_ratio_threshold = 0.18
 
-        # Prevent a single physical clap from triggering
-        # multiple times.
+        # Prevent one clap from being detected repeatedly.
         self.clap_cooldown = 0.15
 
-        # Maximum time between two claps
-        # for them to count as a double clap.
+        # Maximum time between two claps for a double clap.
         self.double_clap_interval = 0.50
 
-        # Used to normalize strength
+        # Used to normalize clap strength.
         self.max_rms = 0.50
 
-        # --------------------------------------------------
-        # AUDIO QUEUE
-        # --------------------------------------------------
+        # ==================================================
+        # QUEUES
+        # ==================================================
 
         self.audio_queue = queue.Queue(maxsize=50)
 
-        # --------------------------------------------------
-        # EVENT QUEUE
-        # --------------------------------------------------
-
         self.event_queue = queue.Queue()
 
-        # --------------------------------------------------
+        # ==================================================
         # DOUBLE CLAP STATE
-        # --------------------------------------------------
+        # ==================================================
 
         self.first_clap_time = None
         self.first_clap_strength = None
 
-        # --------------------------------------------------
-        # COOLDOWN
-        # --------------------------------------------------
-
         self.last_clap_time = 0.0
 
-        # --------------------------------------------------
+        # ==================================================
         # FFT
-        # --------------------------------------------------
+        # ==================================================
 
         self.window = get_window(
             "hann",
@@ -96,9 +87,9 @@ class ClapDetector:
             1 / self.sample_rate
         )
 
-        # --------------------------------------------------
-        # STREAM
-        # --------------------------------------------------
+        # ==================================================
+        # AUDIO STREAM
+        # ==================================================
 
         self.stream = None
 
@@ -111,11 +102,8 @@ class ClapDetector:
         indata,
         frames,
         time_info,
-        status
+        status,
     ):
-        """
-        Called automatically by sounddevice.
-        """
 
         if status:
             print("Audio status:", status)
@@ -123,7 +111,6 @@ class ClapDetector:
         block = indata[:, 0].copy()
 
         try:
-
             self.audio_queue.put_nowait(block)
 
         except queue.Full:
@@ -136,7 +123,7 @@ class ClapDetector:
                 pass
 
     # ======================================================
-    # START MICROPHONE
+    # START
     # ======================================================
 
     def start(self):
@@ -154,7 +141,7 @@ class ClapDetector:
         self.stream.start()
 
     # ======================================================
-    # STOP MICROPHONE
+    # STOP
     # ======================================================
 
     def stop(self):
@@ -167,7 +154,7 @@ class ClapDetector:
             self.stream = None
 
     # ======================================================
-    # CALCULATE CLAP STRENGTH
+    # STRENGTH
     # ======================================================
 
     def _calculate_strength(self, rms):
@@ -183,37 +170,27 @@ class ClapDetector:
         )
 
     # ======================================================
-    # DETECT INDIVIDUAL CLAP
+    # INDIVIDUAL CLAP DETECTION
     # ======================================================
 
     def _detect_clap(self, block):
-        """
-        Return clap strength if this audio block
-        looks like a new clap.
 
-        Return None otherwise.
-        """
-
-        # --------------------------------------------------
-        # Remove DC offset
-        # --------------------------------------------------
-
+        # Remove DC component
         block = block - np.mean(block)
 
         # --------------------------------------------------
-        # RMS
+        # RMS energy
         # --------------------------------------------------
 
         rms = np.sqrt(
             np.mean(block ** 2)
         )
 
-        # Too quiet
         if rms < self.energy_threshold:
             return None
 
         # --------------------------------------------------
-        # Zero pad to FFT size
+        # Pad to FFT size
         # --------------------------------------------------
 
         padded = np.zeros(
@@ -232,7 +209,9 @@ class ClapDetector:
         # Window
         # --------------------------------------------------
 
-        windowed = padded * self.window
+        windowed = (
+            padded * self.window
+        )
 
         # --------------------------------------------------
         # FFT
@@ -247,7 +226,7 @@ class ClapDetector:
         ) ** 2
 
         # --------------------------------------------------
-        # Total spectral energy
+        # Total energy
         # --------------------------------------------------
 
         total_energy = np.sum(power)
@@ -256,17 +235,17 @@ class ClapDetector:
             return None
 
         # --------------------------------------------------
-        # High frequency energy
+        # High-frequency energy
         # --------------------------------------------------
 
-        high_frequency_mask = (
+        mask = (
             (self.frequency_bins >= self.high_freq_min)
             &
             (self.frequency_bins <= self.high_freq_max)
         )
 
         high_frequency_energy = np.sum(
-            power[high_frequency_mask]
+            power[mask]
         )
 
         high_frequency_ratio = (
@@ -275,7 +254,7 @@ class ClapDetector:
         )
 
         # --------------------------------------------------
-        # Clap frequency requirement
+        # Frequency test
         # --------------------------------------------------
 
         if (
@@ -302,14 +281,10 @@ class ClapDetector:
         # Strength
         # --------------------------------------------------
 
-        strength = self._calculate_strength(
-            rms
-        )
-
-        return strength
+        return self._calculate_strength(rms)
 
     # ======================================================
-    # PROCESS CLAP
+    # CLAP SEQUENCE
     # ======================================================
 
     def _process_clap(self, strength):
@@ -328,16 +303,16 @@ class ClapDetector:
             return
 
         # --------------------------------------------------
-        # Second clap
+        # Potential second clap
         # --------------------------------------------------
 
         interval = (
-            now - self.first_clap_time
+            now
+            - self.first_clap_time
         )
 
         if interval <= self.double_clap_interval:
 
-            # Average strength of both claps
             double_strength = (
                 self.first_clap_strength
                 + strength
@@ -354,7 +329,7 @@ class ClapDetector:
             self.first_clap_strength = None
 
         # --------------------------------------------------
-        # Too slow -> previous was single clap
+        # Previous clap was a single clap
         # --------------------------------------------------
 
         else:
@@ -375,31 +350,27 @@ class ClapDetector:
 
     def update(self):
 
-        # --------------------------------------------------
-        # Process microphone blocks
-        # --------------------------------------------------
-
         while True:
 
             try:
-
-                block = self.audio_queue.get_nowait()
+                block = (
+                    self.audio_queue.get_nowait()
+                )
 
             except queue.Empty:
-
                 break
 
-            strength = self._detect_clap(block)
+            strength = self._detect_clap(
+                block
+            )
 
             if strength is not None:
-
                 self._process_clap(
                     strength
                 )
 
         # --------------------------------------------------
-        # Check whether a pending clap became
-        # a single clap.
+        # Pending single clap
         # --------------------------------------------------
 
         if self.first_clap_time is not None:
@@ -432,15 +403,11 @@ class ClapDetector:
         while True:
 
             try:
-
-                event = (
+                events.append(
                     self.event_queue.get_nowait()
                 )
 
-                events.append(event)
-
             except queue.Empty:
-
                 break
 
         return events
