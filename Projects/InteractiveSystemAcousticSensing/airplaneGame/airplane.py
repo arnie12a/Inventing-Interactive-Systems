@@ -1,11 +1,15 @@
 import math
+
 import pygame
 
 
 class Airplane:
 
-    def __init__(self, screen_width, screen_height):
-
+    def __init__(
+        self,
+        screen_width,
+        screen_height
+    ):
         self.screen_width = screen_width
         self.screen_height = screen_height
 
@@ -13,18 +17,22 @@ class Airplane:
         # START POSITION
         # ==================================================
 
-        self.start_x = 150.0
-        self.start_y = screen_height * 0.75
+        self.start_x = (
+            screen_width * 0.08
+        )
+
+        self.start_y = (
+            screen_height * 0.75
+        )
 
         self.x = self.start_x
         self.y = self.start_y
 
         # ==================================================
-        # AIMING ANGLE
+        # AIMING
         # ==================================================
 
         self.angle = 45.0
-
         self.angle_speed = 2.0
 
         # ==================================================
@@ -34,67 +42,107 @@ class Airplane:
         self.vx = 0.0
         self.vy = 0.0
 
-        # Pixels per second squared
-        self.gravity = 350.0
+        self.gravity = 300.0
 
         self.launched = False
         self.landed = False
+
+        # ==================================================
+        # BOOST
+        # ==================================================
+
+        self.boost_available = True
+
+        self.boost_strength = 180.0
 
         # ==================================================
         # FLIGHT DATA
         # ==================================================
 
         self.launch_angle = 0.0
-
         self.launch_strength = 0.0
-
         self.launch_power = 0.0
 
-        # This is the value game.py was looking for.
         self.flight_distance = 0.0
 
         self.max_height = self.start_y
 
+        # ==================================================
+        # TRAJECTORY
+        # ==================================================
+
+        self.trajectory = []
+
     # ======================================================
-    # UPDATE AIMING ANGLE
+    # RESET
     # ======================================================
 
-    def update_angle(self, elapsed):
+    def reset(self):
 
-        # Do not change angle after launch
+        self.x = self.start_x
+        self.y = self.start_y
+
+        self.angle = 45.0
+
+        self.vx = 0.0
+        self.vy = 0.0
+
+        self.launched = False
+        self.landed = False
+
+        self.boost_available = True
+
+        self.launch_angle = 0.0
+        self.launch_strength = 0.0
+        self.launch_power = 0.0
+
+        self.flight_distance = 0.0
+
+        self.max_height = self.start_y
+
+        self.trajectory = []
+
+    # ======================================================
+    # AIMING
+    # ======================================================
+
+    def update_angle(
+        self,
+        elapsed
+    ):
         if self.launched:
             return
 
-        # Oscillate continuously:
-        #
-        # 0 -> 90 -> 0 -> 90...
-        #
+        # 0 -> 90 -> 0 -> 90
         self.angle = (
             45.0
             + 45.0
             * math.sin(
-                elapsed * self.angle_speed
+                elapsed
+                * self.angle_speed
             )
         )
 
-        # ==================================================
-        # Convert angle into screen position
-        # ==================================================
-
         sea_level = (
-            self.screen_height * 0.75
+            self.screen_height
+            * 0.75
         )
 
         top_level = (
-            self.screen_height * 0.20
+            self.screen_height
+            * 0.20
         )
 
-        ratio = self.angle / 90.0
+        ratio = (
+            self.angle
+            / 90.0
+        )
 
         self.y = (
             sea_level
             - (
-                sea_level - top_level
+                sea_level
+                - top_level
             )
             * ratio
         )
@@ -108,63 +156,62 @@ class Airplane:
         power,
         clap_strength
     ):
-
-        # Prevent launching twice
         if self.launched:
             return
 
         self.launched = True
-
         self.landed = False
 
-        # --------------------------------------------------
-        # Save launch information
-        # --------------------------------------------------
+        self.launch_angle = (
+            self.angle
+        )
 
-        self.launch_angle = self.angle
-
-        self.launch_strength = clap_strength
+        self.launch_strength = (
+            clap_strength
+        )
 
         self.launch_power = power
 
-        # --------------------------------------------------
-        # Starting velocity
-        # --------------------------------------------------
+        # Keep flight within screen.
+        effective_power = min(
+            power,
+            5.0
+        )
 
-        base_speed = 250.0
+        base_speed = 140.0
 
         initial_speed = (
             base_speed
-            * power
+            * effective_power
             * clap_strength
         )
 
-        # --------------------------------------------------
-        # Convert angle into velocity components
-        # --------------------------------------------------
+        initial_speed = max(
+            initial_speed,
+            25.0
+        )
 
         radians = math.radians(
             self.launch_angle
         )
 
-        # Horizontal velocity
         self.vx = (
             initial_speed
             * math.cos(radians)
         )
 
-        # Vertical velocity
-        #
-        # Pygame's Y axis increases downward,
-        # so upward velocity is negative.
-        #
+        # Negative is upward in Pygame.
         self.vy = (
             -initial_speed
             * math.sin(radians)
         )
 
-        # Reset flight measurements
-        self.flight_distance = 0.0
+        self.trajectory = [
+            (
+                self.x,
+                self.y
+            )
+        ]
 
         self.max_height = self.y
 
@@ -173,7 +220,7 @@ class Airplane:
         print("AIRPLANE LAUNCHED")
         print(
             f"Angle: "
-            f"{self.launch_angle:.2f} degrees"
+            f"{self.launch_angle:.2f}°"
         )
         print(
             f"Clap strength: "
@@ -184,18 +231,50 @@ class Airplane:
             f"{self.launch_power:.2f}"
         )
         print(
-            f"Initial velocity: "
+            f"Initial speed: "
             f"{initial_speed:.2f}"
         )
         print("==============================")
         print()
 
     # ======================================================
-    # PHYSICS UPDATE
+    # ONE-TIME BOOST
     # ======================================================
 
-    def update_physics(self, dt):
+    def boost(self):
 
+        if not self.launched:
+            return False
+
+        if self.landed:
+            return False
+
+        if not self.boost_available:
+            return False
+
+        self.boost_available = False
+
+        # Give airplane an upward impulse.
+        self.vy -= (
+            self.boost_strength
+        )
+
+        print()
+        print("==============================")
+        print("BOOST ACTIVATED!")
+        print("==============================")
+        print()
+
+        return True
+
+    # ======================================================
+    # PHYSICS
+    # ======================================================
+
+    def update_physics(
+        self,
+        dt
+    ):
         if not self.launched:
             return
 
@@ -203,21 +282,45 @@ class Airplane:
             return
 
         # ==================================================
-        # APPLY GRAVITY
+        # GRAVITY
         # ==================================================
 
-        self.vy += self.gravity * dt
+        self.vy += (
+            self.gravity
+            * dt
+        )
 
         # ==================================================
-        # UPDATE POSITION
+        # POSITION
         # ==================================================
 
-        self.x += self.vx * dt
+        self.x += (
+            self.vx
+            * dt
+        )
 
-        self.y += self.vy * dt
+        self.y += (
+            self.vy
+            * dt
+        )
 
         # ==================================================
-        # TRACK MAX HEIGHT
+        # TRAJECTORY
+        # ==================================================
+
+        self.trajectory.append(
+            (
+                self.x,
+                self.y
+            )
+        )
+
+        if len(self.trajectory) > 3000:
+
+            self.trajectory.pop(0)
+
+        # ==================================================
+        # MAX HEIGHT
         # ==================================================
 
         if self.y < self.max_height:
@@ -225,11 +328,12 @@ class Airplane:
             self.max_height = self.y
 
         # ==================================================
-        # CHECK FOR LANDING
+        # LANDING
         # ==================================================
 
         sea_level = (
-            self.screen_height * 0.75
+            self.screen_height
+            * 0.75
         )
 
         if self.y >= sea_level:
@@ -238,46 +342,75 @@ class Airplane:
 
             self.landed = True
 
-            # ----------------------------------------------
-            # Final distance
-            # ----------------------------------------------
-
             self.flight_distance = (
-                self.x - self.start_x
+                self.x
+                - self.start_x
             )
 
             print()
             print("==============================")
             print("LANDED")
             print(
-                f"Flight distance: "
+                f"Distance: "
                 f"{self.flight_distance:.2f}"
-            )
-            print(
-                f"Launch angle: "
-                f"{self.launch_angle:.2f}"
             )
             print("==============================")
             print()
 
     # ======================================================
-    # DRAW
+    # DRAW TRAJECTORY
     # ======================================================
 
-    def draw(self, screen):
+    def draw_trajectory(
+        self,
+        screen
+    ):
+        if len(
+            self.trajectory
+        ) < 2:
+            return
 
-        # --------------------------------------------------
-        # Create airplane surface
-        # --------------------------------------------------
+        points = [
+            (
+                int(x),
+                int(y)
+            )
+            for x, y
+            in self.trajectory
+        ]
 
+        pygame.draw.lines(
+            screen,
+            (255, 255, 255),
+            False,
+            points,
+            3
+        )
+
+    # ======================================================
+    # DRAW AIRPLANE
+    # ======================================================
+
+    def draw(
+        self,
+        screen
+    ):
+        # Draw flight path
+        if self.launched:
+
+            self.draw_trajectory(
+                screen
+            )
+
+        # Transparent airplane canvas
         plane = pygame.Surface(
             (120, 100),
             pygame.SRCALPHA
         )
 
-        # --------------------------------------------------
-        # Body
-        # --------------------------------------------------
+        # ==================================================
+        # BODY
+        # ==================================================
 
         body = [
             (90, 50),
@@ -299,9 +432,9 @@ class Airplane:
             2
         )
 
-        # --------------------------------------------------
-        # Top wing
-        # --------------------------------------------------
+        # ==================================================
+        # TOP WING
+        # ==================================================
 
         top_wing = [
             (50, 50),
@@ -315,9 +448,9 @@ class Airplane:
             top_wing
         )
 
-        # --------------------------------------------------
-        # Bottom wing
-        # --------------------------------------------------
+        # ==================================================
+        # BOTTOM WING
+        # ==================================================
 
         bottom_wing = [
             (50, 50),
@@ -331,19 +464,16 @@ class Airplane:
             bottom_wing
         )
 
-        # --------------------------------------------------
-        # Rotation
-        # --------------------------------------------------
+        # ==================================================
+        # ROTATION
+        # ==================================================
 
         if not self.launched:
 
-            # During aiming, use selected angle
             rotation = self.angle
 
         else:
 
-            # During flight, point airplane in direction
-            # of travel.
             rotation = math.degrees(
                 math.atan2(
                     -self.vy,
@@ -351,15 +481,19 @@ class Airplane:
                 )
             )
 
-        rotated = pygame.transform.rotate(
-            plane,
-            rotation
+        rotated = (
+            pygame.transform.rotate(
+                plane,
+                rotation
+            )
         )
 
-        rect = rotated.get_rect(
-            center=(
-                int(self.x),
-                int(self.y)
+        rect = (
+            rotated.get_rect(
+                center=(
+                    int(self.x),
+                    int(self.y)
+                )
             )
         )
 
