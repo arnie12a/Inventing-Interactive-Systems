@@ -85,6 +85,9 @@ After launch, the airplane can experience a upward boost by a double clap.
 
 ---
 
+### AI Usage
+AI was used for the development of the application. clap_detector.py was implemented on top of the fft_bin python script given to us from the lab. The layout of the game was created and drawn out by myself but ht actual code from the game is generated through many iterations of ChatGPT. 
+
 ### Application StructureairplaneGame/
 
 ```text

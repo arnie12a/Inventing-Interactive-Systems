@@ -10,7 +10,10 @@ FPS = 60
 def main():
     pygame.init()
 
-    # Use the MacBook's current display resolution
+    # ======================================================
+    # WINDOW
+    # ======================================================
+
     display_info = pygame.display.Info()
 
     screen_width = display_info.current_w
@@ -21,11 +24,16 @@ def main():
         pygame.FULLSCREEN
     )
 
-    pygame.display.set_caption("Acoustic Airplane")
+    pygame.display.set_caption(
+        "Acoustic Airplane"
+    )
 
     clock = pygame.time.Clock()
 
-    # Microphone / clap detector
+    # ======================================================
+    # CLAP DETECTOR
+    # ======================================================
+
     detector = ClapDetector(
         sample_rate=48_000,
         block_size=1024,
@@ -35,7 +43,10 @@ def main():
 
     detector.start()
 
-    # Game
+    # ======================================================
+    # GAME
+    # ======================================================
+
     game = Game(
         screen,
         detector
@@ -46,22 +57,26 @@ def main():
     print("ACOUSTIC AIRPLANE")
     print("==============================")
     print()
-    print("POWER-UP:")
+    print("POWER-UP")
     print("Double clap to build power.")
     print()
-    print("LAUNCH:")
+    print("LAUNCH")
     print("Single clap to launch.")
     print()
-    print("BOOST:")
+    print("BOOST")
     print("Double clap once during flight.")
     print()
-    print("Press ESC to quit.")
+    print("ESC = Quit")
     print()
 
     running = True
 
     try:
         while running:
+
+            # ==================================================
+            # PYGAME EVENTS
+            # ==================================================
 
             for event in pygame.event.get():
 
@@ -77,9 +92,25 @@ def main():
                 else:
                     game.handle_event(event)
 
-            dt = clock.tick(FPS) / 1000.0
+            # ==================================================
+            # TIME
+            # ==================================================
+
+            dt = (
+                clock.tick(FPS)
+                / 1000.0
+            )
+
+            # ==================================================
+            # UPDATE
+            # ==================================================
 
             game.update(dt)
+
+            # ==================================================
+            # DRAW
+            # ==================================================
+
             game.draw()
 
             pygame.display.flip()
