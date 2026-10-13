@@ -1,0 +1,7 @@
+streamlit
+yt-dlp[default]
+numpy
+soundfile
+pandas
+pyserial
+websockets>=14,<17

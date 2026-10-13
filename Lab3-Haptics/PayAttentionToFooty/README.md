@@ -1,1 +1,0 @@
-My idea is to build an interactive system that buzzes when a soccer team is about to score that uses computer vision and acoustic sensing. 
