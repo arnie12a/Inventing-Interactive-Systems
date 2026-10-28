@@ -25,5 +25,5 @@ When the ball gets within 2 cm of the goal a goal is detected by the system. The
 ## How It Run the Script
 To run this all you have to do is run the goalDetection.ino 
 
-
-
+## Artificial Intelligence
+I only utilized AI for the development of the structure for this interactive system and code for running the goal detection on the esp32.
